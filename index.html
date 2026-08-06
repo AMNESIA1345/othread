@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>#0THREAD — Oppose Chat Control</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper: #eeeade;
+    --paper-dim: #e4e0d2;
+    --ink: #17160f;
+    --ink-soft: #46453b;
+    --redact: #131210;
+    --stamp: #a3271f;
+    --stamp-soft: #a3271f22;
+    --line: #c9c3ae;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'Inter', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:var(--stamp); color:var(--paper);}
+
+  a{color:inherit;}
+
+  .noise{
+    position:fixed; inset:0; pointer-events:none; z-index:1; opacity:.035; mix-blend-mode:multiply;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  header{
+    position:sticky; top:0; z-index:50;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:18px 5vw;
+    background:var(--paper);
+    border-bottom:1px solid var(--line);
+  }
+  .brand{
+    font-family:var(--mono); font-weight:700; letter-spacing:.02em; font-size:15px;
+    display:flex; align-items:center; gap:10px;
+  }
+  .brand .dot{width:8px;height:8px;background:var(--stamp);display:inline-block;border-radius:50%;}
+  nav{display:flex; gap:28px; font-family:var(--mono); font-size:12px; letter-spacing:.05em; text-transform:uppercase;}
+  nav a{text-decoration:none; color:var(--ink-soft); border-bottom:1px solid transparent; padding-bottom:2px;}
+  nav a:hover{color:var(--ink); border-color:var(--ink);}
+  .nav-toggle{display:none;}
+
+  .case-file{
+    font-family:var(--mono); font-size:11px; color:var(--ink-soft);
+    letter-spacing:.08em; text-transform:uppercase;
+  }
+
+  /* HERO */
+  .hero{
+    position:relative;
+    padding:min(14vh,120px) 5vw 90px;
+    max-width:1100px; margin:0 auto;
+  }
+  .hero .eyebrow{
+    font-family:var(--mono); font-size:12px; color:var(--stamp);
+    letter-spacing:.12em; text-transform:uppercase; margin-bottom:26px;
+    display:flex; align-items:center; gap:10px;
+  }
+  .hero .eyebrow::before{content:"§"; font-size:14px;}
+
+  h1.headline{
+    font-family:var(--mono);
+    font-weight:700;
+    font-size:clamp(30px, 5.4vw, 68px);
+    line-height:1.08;
+    letter-spacing:-0.01em;
+    margin:0 0 34px;
+    max-width:16ch;
+  }
+  .redact{
+    display:inline-block;
+    background:var(--redact);
+    color:transparent;
+    border-radius:2px;
+    cursor:pointer;
+    transition:background .5s ease, color .3s ease .1s;
+    padding:0 6px;
+    box-decoration-break:clone;
+    -webkit-box-decoration-break:clone;
+  }
+  .redact.revealed{
+    background:transparent;
+    color:var(--stamp);
+  }
+  .redact-hint{
+    font-family:var(--mono); font-size:11px; color:var(--ink-soft);
+    letter-spacing:.05em; margin:-18px 0 34px; opacity:.8;
+  }
+
+  .hero-sub{
+    font-size:clamp(16px,1.9vw,19px);
+    line-height:1.65;
+    color:var(--ink-soft);
+    max-width:52ch;
+    margin:0 0 40px;
+  }
+  .hero-sub b{color:var(--ink); font-weight:600;}
+
+  .cta-row{display:flex; gap:14px; flex-wrap:wrap; align-items:center;}
+  .btn{
+    font-family:var(--mono); font-size:13px; letter-spacing:.04em; text-transform:uppercase;
+    padding:14px 22px; border:1px solid var(--ink); background:var(--ink); color:var(--paper);
+    cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:8px;
+    transition:transform .15s ease, background .15s ease;
+  }
+  .btn:hover{transform:translateY(-2px); background:var(--stamp); border-color:var(--stamp);}
+  .btn.ghost{background:transparent; color:var(--ink); border:1px solid var(--ink);}
+  .btn.ghost:hover{background:var(--ink); color:var(--paper); border-color:var(--ink);}
+
+  .stamp{
+    position:absolute;
+    top:6vh; right:4vw;
+    font-family:var(--mono); font-weight:700; font-size:15px;
+    color:var(--stamp); border:3px solid var(--stamp);
+    padding:8px 14px; letter-spacing:.08em;
+    transform:rotate(9deg);
+    opacity:.85;
+    user-select:none;
+  }
+
+  /* STATUS STRIP */
+  .status{
+    border-top:1px solid var(--line); border-bottom:1px solid var(--line);
+    background:var(--paper-dim);
+    padding:16px 5vw;
+    display:flex; gap:40px; overflow-x:auto;
+    font-family:var(--mono); font-size:12.5px; color:var(--ink-soft);
+  }
+  .status span{white-space:nowrap;}
+  .status b{color:var(--stamp);}
+
+  section{padding:100px 5vw; max-width:1100px; margin:0 auto;}
+  .section-head{margin-bottom:52px; max-width:60ch;}
+  .tag{
+    font-family:var(--mono); font-size:12px; color:var(--stamp);
+    letter-spacing:.1em; text-transform:uppercase; margin-bottom:14px; display:block;
+  }
+  h2{
+    font-family:var(--mono); font-weight:700;
+    font-size:clamp(24px,3.4vw,38px); margin:0 0 16px; letter-spacing:-.01em;
+  }
+  .section-head p{font-size:16px; line-height:1.7; color:var(--ink-soft); margin:0;}
+
+  /* EXHIBIT (what is chat control) */
+  .exhibit{
+    border:1px solid var(--ink); background:var(--paper);
+    padding:36px 40px; position:relative;
+  }
+  .exhibit::before{
+    content:"EXHIBIT A";
+    position:absolute; top:-13px; left:32px; background:var(--paper);
+    padding:0 10px; font-family:var(--mono); font-size:11px; letter-spacing:.1em; color:var(--stamp);
+  }
+  .exhibit p{font-size:16.5px; line-height:1.8; color:var(--ink); margin:0 0 18px;}
+  .exhibit p:last-child{margin-bottom:0;}
+  .exhibit strong{background:var(--stamp-soft); padding:0 4px;}
+
+  .versus{
+    display:grid; grid-template-columns:1fr 1fr; gap:0; margin-top:36px;
+    border:1px solid var(--line);
+  }
+  .versus > div{padding:26px 28px;}
+  .versus > div:first-child{border-right:1px solid var(--line);}
+  .versus h4{font-family:var(--mono); font-size:13px; letter-spacing:.06em; text-transform:uppercase; margin:0 0 12px; color:var(--ink-soft);}
+  .versus .ver{font-family:var(--mono); font-size:22px; font-weight:700; margin-bottom:10px;}
+  .versus p{font-size:14.5px; line-height:1.6; color:var(--ink-soft); margin:0;}
+  .versus .live{color:var(--stamp);}
+
+  /* CASE AGAINST GRID */
+  .grid4{display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--line); border:1px solid var(--line);}
+  .grid4 .card{background:var(--paper); padding:32px 30px;}
+  .card .num{font-family:var(--mono); font-size:12px; color:var(--stamp); margin-bottom:14px; display:block;}
+  .card h3{font-family:var(--mono); font-size:19px; margin:0 0 10px; letter-spacing:-.01em;}
+  .card p{font-size:14.5px; line-height:1.65; color:var(--ink-soft); margin:0;}
+
+  /* TIMELINE */
+  .timeline{border-left:1px solid var(--ink); margin-left:6px; padding-left:0;}
+  .tl-item{position:relative; padding:0 0 40px 32px;}
+  .tl-item:last-child{padding-bottom:0;}
+  .tl-item::before{
+    content:""; position:absolute; left:-6px; top:4px; width:11px; height:11px;
+    background:var(--paper); border:2px solid var(--ink); border-radius:50%;
+  }
+  .tl-item.hot::before{border-color:var(--stamp); background:var(--stamp);}
+  .tl-date{font-family:var(--mono); font-size:12.5px; color:var(--stamp); letter-spacing:.05em; margin-bottom:6px;}
+  .tl-item h4{margin:0 0 6px; font-size:16.5px; font-weight:600;}
+  .tl-item p{margin:0; font-size:14.5px; line-height:1.6; color:var(--ink-soft); max-width:56ch;}
+
+  /* ACTION */
+  .action{background:var(--ink); color:var(--paper); border-radius:2px;}
+  .action .section-head p{color:#c9c5b4;}
+  .action .tag{color:#ff9d8f;}
+  .action-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:#3a382f;}
+  .action-grid .card{background:var(--ink); padding:30px 26px;}
+  .action-grid .card h3{color:var(--paper); font-family:var(--mono); font-size:16px; margin:0 0 10px;}
+  .action-grid .card p{color:#b9b6a7; font-size:14px; line-height:1.6; margin:0 0 18px;}
+  .action-grid .btn{width:100%; justify-content:center;}
+
+  .sources{border-top:1px dashed var(--line); border-bottom:1px dashed var(--line); background:var(--paper-dim);}
+  .source-doc{
+    display:flex; align-items:center; gap:24px;
+    border:1px solid var(--ink); background:var(--paper);
+    padding:26px 30px;
+  }
+  .source-doc .icon{
+    font-family:var(--mono); font-size:11px; letter-spacing:.06em;
+    border:1px solid var(--ink); padding:14px 12px; text-align:center; line-height:1.5;
+    flex-shrink:0; color:var(--ink-soft);
+  }
+  .source-doc .icon b{display:block; font-size:15px; color:var(--stamp); margin-bottom:2px;}
+  .source-doc .meta{flex:1; min-width:0;}
+  .source-doc .meta .kicker{font-family:var(--mono); font-size:11px; color:var(--stamp); letter-spacing:.08em; text-transform:uppercase; margin-bottom:6px;}
+  .source-doc .meta h4{margin:0 0 6px; font-size:17px; font-weight:600;}
+  .source-doc .meta p{margin:0; font-size:14px; line-height:1.6; color:var(--ink-soft);}
+  .source-doc .btn{flex-shrink:0;}
+  @media (max-width:640px){
+    .source-doc{flex-direction:column; align-items:flex-start;}
+    .source-doc .btn{width:100%; justify-content:center;}
+  }
+    padding:50px 5vw; border-top:1px solid var(--line);
+    display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:20px;
+    font-family:var(--mono); font-size:12px; color:var(--ink-soft); letter-spacing:.03em;
+  }
+  footer .brand{font-size:13px;}
+
+  @media (max-width:900px){
+    .grid4{grid-template-columns:repeat(2,1fr);}
+  }
+  @media (max-width:760px){
+    nav{display:none;}
+    .stamp{position:static; display:inline-flex; margin-top:26px; transform:rotate(-2deg);}
+    .versus{grid-template-columns:1fr;}
+    .versus > div:first-child{border-right:none; border-bottom:1px solid var(--line);}
+    .grid4{grid-template-columns:1fr;}
+    .action-grid{grid-template-columns:1fr;}
+    section{padding:70px 6vw;}
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    html{scroll-behavior:auto;}
+    .redact, .btn{transition:none;}
+  }
+
+  .reveal{opacity:0; transform:translateY(14px); transition:opacity .6s ease, transform .6s ease;}
+  .reveal.in{opacity:1; transform:translateY(0);}
+</style>
+</head>
+<body>
+
+<div class="noise"></div>
+
+<header>
+  <div class="brand"><span class="dot"></span>#0THREAD</div>
+  <nav>
+    <a href="#exhibit">The Proposal</a>
+    <a href="#case">The Case</a>
+    <a href="#timeline">Timeline</a>
+    <a href="#sources">Sources</a>
+    <a href="#action">Act</a>
+  </nav>
+  <div class="case-file">FILE&nbsp;0T‑2026‑CTRL</div>
+</header>
+
+<section class="hero">
+  <div class="eyebrow">Public Advisory — Digital Rights Coalition</div>
+  <h1 class="headline">
+    They want to open every
+    <span class="redact" data-reveal="private message you send.">▊▊▊▊▊▊▊ ▊▊▊▊▊▊▊ ▊▊▊ ▊▊▊▊.</span>
+  </h1>
+  <div class="redact-hint">click the redaction to declassify ↑</div>
+  <p class="hero-sub">
+    <b>#0thread</b> is a coalition of engineers, cryptographers, and privacy advocates opposing Chat Control —
+    the EU's plan to scan private communications by default, without a warrant and without suspicion.
+    No thread to pull. No backdoor to find.
+  </p>
+  <div class="cta-row">
+    <a class="btn" href="#action">Take Action →</a>
+    <a class="btn ghost" href="#exhibit">Read The Proposal</a>
+  </div>
+  <div class="stamp">OPPOSED</div>
+</section>
+
+<div class="status">
+  <span>STATUS: <b>Chat Control 1.0 in force until 2028</b></span>
+  <span>Passed 9 Jul 2026 — 314 MEPs against, 276 for, short of the 361 needed to block it</span>
+  <span>Chat Control 2.0 (permanent) — trilogue resumes <b>Sept 2026</b></span>
+</div>
+
+<section id="exhibit">
+  <div class="section-head reveal">
+    <span class="tag">Exhibit A</span>
+    <h2>What Chat Control actually is</h2>
+    <p>Officially the Child Sexual Abuse Regulation (CSAR), first proposed by the European Commission in May 2022.
+      Framed as a child-protection measure, it has become the EU's most contested digital rights fight in a decade.</p>
+  </div>
+  <div class="exhibit reveal">
+    <p>The regulation would allow — and in earlier drafts, require — messaging services to
+      <strong>scan private communications</strong> for illegal material before they're sent, including inside
+      end-to-end encrypted apps. Detection would run on-device, comparing your messages, photos, and files against
+      databases of known and, controversially, unknown material using pattern-matching AI.</p>
+    <p>Two versions have moved on parallel tracks. <strong>Chat Control 1.0</strong> is a temporary rule letting
+      platforms voluntarily scan unencrypted messages — it lapsed in April 2026 and was controversially revived on
+      9 July 2026, now running until 2028. <strong>Chat Control 2.0</strong>, the permanent regulation, would go
+      further and remains stuck in trilogue negotiations between the Council, Parliament, and Commission.</p>
+  </div>
+
+  <div class="versus reveal">
+    <div>
+      <h4>Chat Control 1.0 — Live</h4>
+      <div class="ver live">Voluntary</div>
+      <p>Platforms may scan unencrypted messages for known CSAM. In force again since 9 July 2026, running until
+        3 April 2028. Does not apply to encrypted messages.</p>
+    </div>
+    <div>
+      <h4>Chat Control 2.0 — Pending</h4>
+      <div class="ver">Mandatory</div>
+      <p>Would apply detection orders broadly, including pressure on encrypted services. Blocked in trilogue since
+        June 2026; talks resume September 2026.</p>
+    </div>
+  </div>
+</section>
+
+<section id="case">
+  <div class="section-head reveal">
+    <span class="tag">Exhibit B</span>
+    <h2>The case against it</h2>
+    <p>#0thread doesn't dispute the goal of protecting children — we dispute the method. Mass, suspicionless
+      scanning trades everyone's privacy for a detection system experts say doesn't reliably work.</p>
+  </div>
+  <div class="grid4 reveal">
+    <div class="card">
+      <span class="num">01</span>
+      <h3>There's no such thing as a safe backdoor</h3>
+      <p>Any scanning mechanism built into an encrypted app is a vulnerability that can be found, repurposed, or
+        exploited — by criminals, hostile states, or future governments with different intentions.</p>
+    </div>
+    <div class="card">
+      <span class="num">02</span>
+      <h3>No suspicion required</h3>
+      <p>Detection applies to everyone by default, not people under investigation. It reverses a legal principle
+        that surveillance follows suspicion, not the other way around.</p>
+    </div>
+    <div class="card">
+      <span class="num">03</span>
+      <h3>False positives at EU scale</h3>
+      <p>Independent technical assessments — including the Parliament's own impact study — found no detection
+        method accurate enough to run across hundreds of millions of users without large numbers of innocent
+        messages being flagged.</p>
+    </div>
+    <div class="card">
+      <span class="num">04</span>
+      <h3>It sets a precedent</h3>
+      <p>Once infrastructure for mass scanning exists for one category of content, expanding its scope becomes a
+        policy choice, not an engineering problem. Civil liberties groups warn today's CSAM filter is tomorrow's
+        general-purpose scanner.</p>
+    </div>
+    <div class="card">
+      <span class="num">05</span>
+      <h3>It targets the wrong layer</h3>
+      <p>Offenders who actually want to evade detection can switch to tools outside the regulation's reach. The
+        people left exposed are the hundreds of millions of ordinary users who can't opt out of the apps they
+        rely on for work and family.</p>
+    </div>
+    <div class="card">
+      <span class="num">06</span>
+      <h3>Chilling effect on speech</h3>
+      <p>Knowing every message might be machine-read changes what people are willing to say — to a doctor, a
+        journalist, a lawyer, an abuse survivor. Privacy isn't only about hiding wrongdoing; it's what makes
+        honest conversation possible.</p>
+    </div>
+  </div>
+</section>
+
+<section id="timeline">
+  <div class="section-head reveal">
+    <span class="tag">Exhibit C</span>
+    <h2>How we got here</h2>
+    <p>A condensed record of the fight, from proposal to the present holding pattern.</p>
+  </div>
+  <div class="timeline reveal">
+    <div class="tl-item">
+      <div class="tl-date">MAY 2022</div>
+      <h4>The Commission proposes CSAR</h4>
+      <p>The regulation is introduced, immediately drawing criticism from cryptographers, the EDPS, and digital
+        rights groups over its scanning provisions.</p>
+    </div>
+    <div class="tl-item">
+      <div class="tl-date">2021 – 2024</div>
+      <h4>Chat Control 1.0 extended twice</h4>
+      <p>The temporary voluntary-scanning derogation is repeatedly extended while the permanent regulation stalls
+        in negotiation.</p>
+    </div>
+    <div class="tl-item">
+      <div class="tl-date">MARCH 2026</div>
+      <h4>Parliament rejects another extension</h4>
+      <p>MEPs vote against extending the temporary regime, allowing the legal basis for voluntary scanning to
+        lapse on 3 April.</p>
+    </div>
+    <div class="tl-item">
+      <div class="tl-date">APRIL – JUNE 2026</div>
+      <h4>Trilogue without agreement</h4>
+      <p>Negotiators meet repeatedly on the permanent regulation. The fifth trilogue, on 29 June, ends without a
+        deal on scope, mandatory scanning, or encryption safeguards.</p>
+    </div>
+    <div class="tl-item hot">
+      <div class="tl-date">9 JULY 2026</div>
+      <h4>Chat Control 1.0 revived</h4>
+      <p>In a fast-tracked vote, Parliament reinstates voluntary scanning until 2028 — despite more MEPs voting
+        against it (314) than for it (276), short of the absolute majority needed to block it.</p>
+    </div>
+    <div class="tl-item">
+      <div class="tl-date">SEPT 2026</div>
+      <h4>Sixth trilogue — next test</h4>
+      <p>Talks on the permanent regulation resume under the incoming Council presidency. The core dispute —
+        blanket scanning versus targeted, judge-approved detection — remains unresolved.</p>
+    </div>
+  </div>
+</section>
+
+<section id="sources" class="sources">
+  <div class="section-head reveal">
+    <span class="tag">Exhibit E</span>
+    <h2>Read the primary sources</h2>
+    <p>Don't take our word for it. This is the underlying legal analysis #0thread draws on for the fundamental
+      rights arguments above.</p>
+  </div>
+  <div class="source-doc reveal">
+    <div class="icon">PDF<br><b>12</b>pg</div>
+    <div class="meta">
+      <div class="kicker">Expert Opinion · 22 Feb 2023</div>
+      <h4>Chat Control — Gesellschaft für Freiheitsrechte (GFF)</h4>
+      <p>Submitted to the Digital Affairs Committee of the German Bundestag. Lays out why the draft regulation
+        conflicts with the EU Charter of Fundamental Rights — privacy, chilling effects on speech, unsafeguarded
+        filtering, website blocking, and age verification — and proposes rights-preserving alternatives.</p>
+    </div>
+    <a class="btn" href="./GFF_Position_Chatcontrol_Bundestag_Digital_Committee_English.pdf" target="_blank" rel="noopener">Read the PDF ↓</a>
+  </div>
+</section>
+
+<section id="action" class="action">
+  <div class="section-head reveal">
+    <span class="tag">Exhibit D</span>
+    <h2>What you can do</h2>
+    <p>The permanent regulation is still being negotiated. Nothing here is decided yet.</p>
+  </div>
+  <div class="action-grid reveal">
+    <div class="card">
+      <h3>Write your MEP</h3>
+      <p>A short, personal message to your elected representative before the September trilogue carries more
+        weight than a form letter.</p>
+      <a class="btn" href="#">Find My MEP →</a>
+    </div>
+    <div class="card">
+      <h3>Move to encrypted tools</h3>
+      <p>Use services with real end-to-end encryption and no client-side scanning by design, and encourage the
+        people you talk to to do the same.</p>
+      <a class="btn" href="#">Compare Tools →</a>
+    </div>
+    <div class="card">
+      <h3>Share the file</h3>
+      <p>Most people have never heard of Chat Control. Awareness before a vote is the cheapest, most effective
+        thing you can contribute.</p>
+      <a class="btn" href="#">Copy Link →</a>
+    </div>
+    <div class="card">
+      <h3>Sign an open petition</h3>
+      <p>Coordinated petitions get read into the parliamentary record and cited in committee debates. One
+        signature adds up fast when it's part of a documented count.</p>
+      <a class="btn" href="#">Find A Petition →</a>
+    </div>
+    <div class="card">
+      <h3>Support the legal challenges</h3>
+      <p>Digital rights organisations are preparing court challenges on proportionality and encryption grounds.
+        Most run on donations and volunteer legal work.</p>
+      <a class="btn" href="#">See Organisations →</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="brand">#0THREAD — no thread to pull. no backdoor to find.</div>
+  <div>Prototype build · not affiliated with any EU institution · sources: European Parliament, Council of the EU</div>
+</footer>
+
+<script>
+  // Redaction reveal
+  document.querySelectorAll('.redact').forEach(el=>{
+    const hidden = el.textContent;
+    const revealed = el.getAttribute('data-reveal');
+    el.addEventListener('click', ()=>{
+      const isRevealed = el.classList.toggle('revealed');
+      el.textContent = isRevealed ? revealed : hidden;
+    });
+  });
+
+  // Scroll reveal
+  const io = new IntersectionObserver((entries)=>{
+    entries.forEach(e=>{
+      if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); }
+    });
+  }, {threshold:.15});
+  document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+</script>
+
+</body>
+</html>
